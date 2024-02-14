@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    environment {
+        NODE_VERSION = '20'
+        AWS_DEFAULT_REGION = 'eu-central-1' // Change to your AWS region
+        S3_BUCKET_NAME = 's3://elasticbeanstalk-eu-central-1-721251758824/EasyRent/' 
+    }
+
+    stages {
+     stage('Checkout') {
+            steps {
+                // Checks out the source code into the workspace
+                checkout scm
+            }
+        }
+
+     stage('Install Node.js') {
+            steps {
+                // Uses the Node Version Manager (nvm) to install and use the specified Node.js version
+                script {
+                    sh 'nvm install $NODE_VERSION'
+                    sh 'nvm use $NODE_VERSION'
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                // Installs project dependencies defined in package.json
+                sh 'npm install'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                // Compiles the Angular project. This step will fail if there are compilation errors
+                sh 'ng build --prod'
+            }
+        }
+        
+        stage('Deploy to S3') {
+            steps {
+                script {
+                    // Assuming the compiled output is in the 'dist/' directory
+                    // Syncs the contents of the dist folder to the specified S3 bucket
+                    sh "aws s3 sync dist/ s3://$S3_BUCKET_NAME/ --delete"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment successful!'
+        }
+        failure {
+            echo 'Deployment failed. Please check the logs for errors.'
+        }
+    }
+}
